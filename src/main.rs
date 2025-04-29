@@ -19,6 +19,7 @@ use std::{f64::consts::PI, io::stdout};
 
 /// Based on https://github.com/colej4/satapp/blob/main/src-tauri/src/tracking.rs#L419-L423
 struct SphericalPoint {
+    #[allow(dead_code)]
     rho: f64,
     theta: f64,
     phi: f64,
@@ -43,17 +44,13 @@ fn rect_to_spherical(r: &RectangularPoint) -> SphericalPoint {
     let rho = f64::sqrt(r.x.powi(2) + r.y.powi(2) + r.z.powi(2));
     let theta = f64::atan2(r.y, r.x);
     let phi = f64::atan2(f64::sqrt(r.x.powf(2.0) + r.y.powf(2.0)), r.z);
-    return SphericalPoint {
-        rho: rho,
-        theta: theta,
-        phi: phi,
-    };
+    SphericalPoint { rho, theta, phi }
 }
 
 /// Based on https://github.com/colej4/satapp/blob/be4a3831134475396bab3639b8add1b337e5b93c/src-tauri/src/tracking.rs#L30-L42
 fn spherical_to_lat_lon(s: &SphericalPoint, time: Epoch) -> GroundPos {
     let lat = ((s.phi * 180.0 / PI) - 90.0) * -1.0;
-    let sidereal_time = calc_gmst(time) as f64 / 86400.0 * 360.0;
+    let sidereal_time = calc_gmst(time) / 86400.0 * 360.0;
     let mut lon = ((s.theta * 180.0 / PI) - sidereal_time) % 360.0;
     if lon < -180.0 {
         lon += 360.0;
@@ -62,7 +59,7 @@ fn spherical_to_lat_lon(s: &SphericalPoint, time: Epoch) -> GroundPos {
         lon -= 360.0;
     }
 
-    return GroundPos { lat: lat, lon: lon };
+    GroundPos { lat, lon }
 }
 
 /// returns current gmst in seconds
@@ -73,29 +70,16 @@ pub fn calc_gmst(time: Epoch) -> f64 {
     let t = (now.to_jde_et_days() - s / 86400.0 - 2451545.0) / 36525.0; //days since january 1, 4713 BC noon
     let h0 = 24110.54841 + 8640184.812866 * t + 0.093104 * t.powi(2); //the sidereal time at midnight this morning
     let h1 = 1.00273790935 + 5.9 * 10.0f64.powf(-11.0) * t;
-    let rot = (h0 + h1 * s) % 86400.0;
-    return rot;
+    (h0 + h1 * s) % 86400.0
 }
 
 /// Based on https://github.com/colej4/satapp/blob/be4a3831134475396bab3639b8add1b337e5b93c/src-tauri/src/tracking.rs#L60-L77
 fn get_prediction(time: Epoch, elements: &Elements) -> Option<Prediction> {
     let epoch = Epoch::from_str(format!("{} UTC", elements.datetime).as_str()).unwrap();
     let duration = time - epoch;
-    let constants = sgp4::Constants::from_elements(&elements).unwrap();
-    //println!("last epoch was at {}", epoch);
-    //println!("last epoch was {} ago", duration);
-    let prediction =
-        constants.propagate(sgp4::MinutesSinceEpoch(duration.to_seconds() / 60 as f64));
-    match prediction {
-        Ok(pred) => return Some(pred),
-        Err(_) => {
-            //println!("{:?} at sat {}", e, elements.norad_id);
-            return None;
-        }
-    }
-
-    //println!("        r = {:?} km", prediction.position);
-    //println!("        ṙ = {:?} km.s⁻¹", prediction.velocity);
+    let constants = sgp4::Constants::from_elements(elements).unwrap();
+    let prediction = constants.propagate(sgp4::MinutesSinceEpoch(duration.to_seconds() / 60_f64));
+    prediction.ok()
 }
 
 /// Based on https://github.com/colej4/satapp/blob/be4a3831134475396bab3639b8add1b337e5b93c/src-tauri/src/tracking.rs#L79-L94
@@ -105,13 +89,12 @@ pub fn get_sat_lat_lon(time: Epoch, elements: &Elements) -> Option<GroundPos> {
         let x = prediction.position[0];
         let y = prediction.position[1];
         let z = prediction.position[2];
-        let rect = RectangularPoint { x: x, y: y, z: z };
+        let rect = RectangularPoint { x, y, z };
         let spher = rect_to_spherical(&rect);
         let g = spherical_to_lat_lon(&spher, time);
-        //println!("sat is at ({}, {}) at {:?}", g.lat, g.lon, time);
-        return Some(g);
+        Some(g)
     } else {
-        return None;
+        None
     }
 }
 
