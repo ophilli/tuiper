@@ -145,9 +145,8 @@ fn main() -> anyhow::Result<()> {
         })
         .unwrap();
 
-    let response = ureq::get("https://celestrak.com/NORAD/elements/gp.php")
-        // .query("GROUP", "active") // We can query for all active satellites & then filter to just Kuiper (maybe in the future celestrak will offer a kuiper group)
-        .query("INTDES", "2023-154") // Or we can query for just the protosat launch
+    let response = ureq::get("https://celestrak.com/NORAD/elements/supplemental/sup-gp.php")
+        .query("NAME", "KUIPER")
         .query("FORMAT", "json")
         .call()?;
     let elements_vec: Vec<sgp4::Elements> = response.into_json()?;
@@ -206,7 +205,7 @@ fn main() -> anyhow::Result<()> {
                                     sat.object_name
                                         .as_ref()
                                         .unwrap()
-                                        .strip_prefix("KUIPER-P")
+                                        .strip_prefix("KUIPER-")
                                         .unwrap()
                                 ),
                             );
